@@ -3,9 +3,8 @@ import Keys._
 
 object FPInScalaBuild extends Build {
   val opts = Project.defaultSettings ++ Seq(
-    scalaVersion := "2.10.4",
-    resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"/*,
-    scalacOptions ++= Seq("-explaintypes")*/
+    scalaVersion := "2.11.4",
+    resolvers += "Typesafe Repository" at "http://repo.typesafe.com/typesafe/releases/"
   )
 
   lazy val root =
