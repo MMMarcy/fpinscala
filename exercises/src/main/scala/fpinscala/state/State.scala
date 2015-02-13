@@ -141,6 +141,7 @@ case class State[S, +A](run: S => (A, S)) {
     (f(a, b), s2)
   }
 
+
   def map2ViaFlatMap[B, C](sb: State[S, B])(f: (A, B) => C): State[S, C] =
     flatMap(a => sb.map(b => f(a, b)))
 
@@ -161,6 +162,15 @@ object State {
 
   def unit[S, A]: A => State[S, A] =
     a => State(a -> _)
+
+    def sequence[S, A](sas: List[State[S, A]]): State[S, List[A]] = {
+    def go(s: S, actions: List[State[S,A]], acc: List[A]): (List[A],S) =
+      actions match {
+        case Nil => (acc.reverse,s)
+        case h :: t => h.run(s) match { case (a,s2) => go(s2, t, a :: acc) }
+      }
+    State((s: S) => go(s,sas,List()))
+  }
 
   type Rand[A] = State[RNG, A]
 
