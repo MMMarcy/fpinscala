@@ -13,19 +13,19 @@ The library developed in this chapter goes through several iterations. This file
 shell, which you can fill in and modify while working through the chapter.
 */
 
-case class Prop(run: (TestCases, RNG) => Result) {
+case class Prop(run: (MaxSize, TestCases, RNG) => Result) {
   def &&(p: Prop) = Prop {
-    (n, rng) =>
-      run(n, rng) match {
-        case Passed | Proved => p.run(n, rng)
+    (max, n, rng) =>
+      run(max, n, rng) match {
+        case Passed | Proved => p.run(max, n, rng)
         case x => x
       }
   }
 
   def ||(p: Prop) = Prop {
-    (n, rng) =>
-      run(n, rng) match {
-        case res if res.isFalsified => p.run(n, rng)
+    (max, n, rng) =>
+      run(max, n, rng) match {
+        case res if res.isFalsified => p.run(max, n, rng)
         case x => x
       }
   }
@@ -52,12 +52,44 @@ object Prop {
     def isFalsified = false
   }
 
+  def run(p: Prop,
+    maxSize: Int = 100,
+    testCases: Int = 100,
+    rng: RNG = RNG.Simple(System.currentTimeMillis)): Unit = {
+    p.run(maxSize, testCases, rng) match {
+      case Falsified(msg, n) =>
+        println(s"! Falsified after $n passed tests:\n $msg")
+      case Passed =>
+        println(s"+ OK, passed $testCases tests.")
+      case Proved =>
+        println(s"+ OK, proved property.")
+    }
+  }
+
+  def check(p: => Boolean): Prop = Prop { (_, _, _) =>
+    if (p) Proved else Falsified("()", 0)
+  }
+
+  val smallInt = Gen.choose(-10, 10)
+  val maxProp = forAll(listOf1(smallInt)) { ns =>
+    val max = ns.max
+    !ns.exists(_ > max)
+  }
+
+  val sortedProp = forAll(listOf(smallInt)) { ls =>
+    val sorted = ls.sorted;
+    if (sorted.length == 0)
+      true;
+    else
+      (0 until (sorted.length - 1)).forall(i => sorted(i) <= sorted(i + 1))
+  }
+
   /* Produce an infinite random stream from a `Gen` and a starting `RNG`. */
   def randomStream[A](g: Gen[A])(rng: RNG): Stream[A] =
     Stream.unfold(rng)(rng => Some(g.sample.run(rng)))
 
   def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop {
-    (n, rng) =>
+    (max, n, rng) =>
       randomStream(as)(rng).zip(Stream.from(0)).take(n).map {
         case (a, i) => try {
           if (f(a)) Passed else Falsified(a.toString, i)
@@ -76,8 +108,20 @@ object Gen {
     Gen(State.unit(a))
   }
 
+  def listOf[A](g: Gen[A]): Gen[List[A]] = {
+    boolean.flatMap {
+      b =>
+        if (b) g.flatMap(a => listOf(g).map(l => a :: l))
+        else unit(Nil)
+    }
+  }
+
   def listOfN[A](n: Int, g: Gen[A]): Gen[List[A]] =
     Gen(State.sequence(List.fill(n)(g.sample)))
+
+  def listOf1[A](g: Gen[A]): Gen[List[A]] = {
+    listOfN(1, g).flatMap(l1 => listOf(g).map(l2 => l1 ::: l2))
+  }
 
   def boolean: Gen[Boolean] = {
     Gen(State(RNG.nonNegativeInt).map(n => (n & 1) == 0))
@@ -109,6 +153,11 @@ object Gen {
 
   def weighted[A](g1: (Gen[A], Double), g2: (Gen[A], Double)): Gen[A] = {
     double.flatMap(d => if (d * (g1._2 + g2._2) < g1._2) g1._1 else g2._1)
+  }
+
+  //Exercise 8.12
+  def listOfN[A](gen: Gen[A]): SGen[List[A]] = SGen {
+    i => listOfN(i, gen)
   }
 
 }
