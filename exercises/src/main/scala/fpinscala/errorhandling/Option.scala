@@ -3,30 +3,6 @@ package fpinscala.errorhandling
 import scala.{ Option => _, Some => _, Either => _, _ } // hide std library `Option`, `Some` and `Either`, since we are writing our own in this chapter
 
 sealed trait Option[+A] {
-  def map[B](f: A => B): Option[B] = this match {
-    case Some(a) => Some(f(a))
-    case _ => None
-  }
-
-  def getOrElse[B >: A](default: => B): B = this match {
-    case Some(a) => a
-    case _ => default
-  }
-
-  def flatMap[B](f: A => Option[B]): Option[B] = {
-    this map f getOrElse None
-  }
-
-  def orElse[B >: A](ob: => Option[B]): Option[B] = {
-    map(Some(_)).getOrElse(ob)
-  }
-
-  def filter(f: A => Boolean): Option[A] = {
-    if (map(f).getOrElse(false))
-      this
-    else
-      None
-  }
 
   def filter_(f: A => Boolean): Option[A] = this match {
     case Some(a) if f(a) => this
@@ -56,25 +32,51 @@ object Option {
     if (xs.isEmpty) None
     else Some(xs.sum / xs.length)
 
-  def variance(xs: Seq[Double]): Option[Double] = 
+  def variance(xs: Seq[Double]): Option[Double] =
     mean(xs)
-    .map(m => xs.map( n => math.pow(n - m, 2)))
-    .flatMap(mean)
-  
+      .map(m => xs.map(n => math.pow(n - m, 2)))
+      .flatMap(mean)
 
   def map2[A, B, C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] =
-    a.flatMap(aopt => b.map(bopt => f(aopt,bopt)))
+    a.flatMap(aopt => b.map(bopt => f(aopt, bopt)))
 
-  def sequence[A](a: List[Option[A]]): Option[List[A]] = 
+  def sequence[A](a: List[Option[A]]): Option[List[A]] =
     a.foldLeft(Some(Nil): Option[List[A]])(
-      (acc, opt) => 
-        map2(acc, opt)((list, value) => value::list)
-    )
+      (acc, opt) =>
+        map2(acc, opt)((list, value) => value :: list))
 
-  def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] = 
+  def traverse[A, B](a: List[A])(f: A => Option[B]): Option[List[B]] =
     a.foldLeft(Some(Nil): Option[List[B]])(
       (acc, el) =>
-      map2(acc,f(el))((list, value) => value::list)
-    )
-  
+        map2(acc, f(el))((list, value) => value :: list))
+
+  implicit def toOptionOp[A, B](a: Option[A]): OptionOp[A, B] = new OptionOp(a)
+
+  class OptionOp[A, B](op: Option[A]) {
+    
+    def map[B](f: A => B): Option[B] = op match {
+      case Some(a) => Some(f(a))
+      case _ => None
+    }
+
+    def getOrElse[B >: A](default: => B): B = op match {
+      case Some(a) => a
+      case _ => default
+    }
+
+    def flatMap[B](f: A => Option[B]): Option[B] = {
+      op map f getOrElse None
+    }
+
+    def orElse[B >: A](ob: => Option[B]): Option[B] = {
+      map(Some(_)).getOrElse(ob)
+    }
+
+    def filter(f: A => Boolean): Option[A] = {
+      if (map(f).getOrElse(false))
+        op
+      else
+        None
+    }
+  }
 }

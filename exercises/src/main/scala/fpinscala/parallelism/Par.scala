@@ -97,10 +97,15 @@ object Par {
   }
 
   /* Gives us infix syntax for `Par`. */
-  implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
+  implicit def toParOps[A, B](p: Par[A]): ParOps[A, B] = new ParOps(p)
 
-  class ParOps[A](p: Par[A]) {
+  class ParOps[A, B](p: Par[A]) {
 
+    def flatMap(f: A => Par[B]): Par[B] =
+      es => {
+        val k : A = run(es)(p).get
+        run(es)(f(k))
+      }
   }
 }
 
@@ -114,39 +119,38 @@ object Examples {
       sum(l) + sum(r) // Recursively sum both halves and add the results together.
     }
 
-
   //Exercise 7.7
   def max(ints: IndexedSeq[Int]): Par[Int] = {
-    if(ints.size <= 1)
+    if (ints.size <= 1)
       Par.unit(ints.headOption.getOrElse(0));
     else {
-      val (l,r) = ints.splitAt(ints.length/2)
-      val leftMax =  Par.fork(max(l))
+      val (l, r) = ints.splitAt(ints.length / 2)
+      val leftMax = Par.fork(max(l))
       val rightMax = Par.fork(max(r))
-      Par.map2(leftMax,rightMax)(Math.max)
+      Par.map2(leftMax, rightMax)(Math.max)
     }
   }
 
   protected def count(s: String): Int = {
     var count = 0
-    for(c <- s if c == ' '){count += 1}
+    for (c <- s if c == ' ') { count += 1 }
     count
   }
 
   def countWords(paragraphs: IndexedSeq[String]): Par[Int] = {
-    val baseCase: IndexedSeq[String] => Int = {l => l.headOption.map(a => count(a)).getOrElse(0)}
+    val baseCase: IndexedSeq[String] => Int = { l => l.headOption.map(a => count(a)).getOrElse(0) }
     val rec = countWords(_)
     template(paragraphs)(baseCase)(rec)(_ + _)
   }
 
-  def template[A,B](l: IndexedSeq[A])(baseCase: IndexedSeq[A] => B)(rec: IndexedSeq[A] => Par[B])(comb: (B,B) => B): Par[B] = {
-    if(l.size <= 1)
+  def template[A, B](l: IndexedSeq[A])(baseCase: IndexedSeq[A] => B)(rec: IndexedSeq[A] => Par[B])(comb: (B, B) => B): Par[B] = {
+    if (l.size <= 1)
       unit(baseCase(l))
-    else{
-      val (ll,rl) = l.splitAt(l.length/2)
+    else {
+      val (ll, rl) = l.splitAt(l.length / 2)
       val left = Par.fork(rec(ll))
       val right = Par.fork(rec(rl))
-      Par.map2(left,right)(comb)
+      Par.map2(left, right)(comb)
     }
   }
 
