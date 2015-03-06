@@ -11,22 +11,36 @@ trait Applicative[F[_]] extends Functor[F] {
 
   def map2[A,B,C](fa: F[A], fb: F[B])(f: (A, B) => C): F[C] = ???
 
-  def apply[A,B](fab: F[A => B])(fa: F[A]): F[B] = ???
+  def apply[A,B](fab: F[A => B])(fa: F[A]): F[B] = 
+    map2(fab,fa)((f,a) => f(a))
 
   def unit[A](a: => A): F[A]
 
   def map[A,B](fa: F[A])(f: A => B): F[B] =
     apply(unit(f))(fa)
 
-  def sequence[A](fas: List[F[A]]): F[List[A]] = ???
+  def sequence[A](fas: List[F[A]]): F[List[A]] = {
+    fas.foldRight(unit(List[A]()))((a,acc) => map2(a,acc)(_ :: _))
+  }
 
   def traverse[A,B](as: List[A])(f: A => F[B]): F[List[B]] = ???
 
-  def replicateM[A](n: Int, fa: F[A]): F[List[A]] = ???
+  def replicateM[A](n: Int, fa: F[A]): F[List[A]] = {
+    @annotation.tailrec def go(n: Int, acc: F[List[A]]): F[List[A]] = {
+      if (n == 0)
+        acc
+      else{
+        go(n-1, map2(fa,acc)(_ :: _))
+      }
+    }
+    go(n, unit(List[A]()))
+  }
 
   def factor[A,B](fa: F[A], fb: F[B]): F[(A,B)] = ???
 
-  def product[G[_]](G: Applicative[G]): Applicative[({type f[x] = (F[x], G[x])})#f] = ???
+  def product[G[_]](G: Applicative[G]): Applicative[({type f[x] = (F[x], G[x])})#f] = {
+    ???
+  }
 
   def compose[G[_]](G: Applicative[G]): Applicative[({type f[x] = F[G[x]]})#f] = ???
 
